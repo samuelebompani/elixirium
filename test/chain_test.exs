@@ -21,4 +21,9 @@ defmodule Elixirium.ChainTest do
     assert length(chain) == 2
     assert List.last(chain).transactions == ["tx1"]
   end
+
+  test "add_block returns ok tuple", %{pid: pid} do
+    {:ok, block} = Chain.add_block(pid, ["tx1"])
+    assert block.index == 1
+  end
 end

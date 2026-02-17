@@ -33,7 +33,7 @@ defmodule Elixirium.Chain do
   def handle_call({:add_block, transactions}, _from, state) do
     last_block = List.last(state)
 
-    new_block =
+    candidate =
       %Block{
         index: last_block.index + 1,
         timestamp: System.system_time(:second),
@@ -44,7 +44,11 @@ defmodule Elixirium.Chain do
       }
       |> Miner.mine()
 
-    {:reply, :ok, state ++ [new_block]}
+    if Block.valid_successor?(last_block, candidate) do
+      {:reply, {:ok, candidate}, state ++ [candidate]}
+    else
+      {:reply, {:error, :invalid_block}, state}
+    end
   end
 
   defp create_genesis_block do
