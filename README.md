@@ -1,2 +1,2 @@
-# elixirium
+# Elixirium
 A blockchain prototype in Elixir
