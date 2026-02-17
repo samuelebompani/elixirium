@@ -20,4 +20,22 @@ defmodule Elixirium.Block do
     :crypto.hash(:sha256, data)
     |> Base.encode16(case: :lower)
   end
+
+  def valid_chain?([]), do: false
+  def valid_chain?([_genesis]), do: true
+
+  def valid_chain?([genesis | rest]) do
+    valid_hash?(genesis) and
+      validate_links(genesis, rest)
+  end
+
+  defp validate_links(_prev, []), do: true
+
+  defp validate_links(prev, [current | tail]) do
+    if valid_successor?(prev, current) do
+      validate_links(current, tail)
+    else
+      false
+    end
+  end
 end

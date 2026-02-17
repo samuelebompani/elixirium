@@ -12,8 +12,12 @@ defmodule Elixirium.Chain do
     GenServer.call(pid, :get_chain)
   end
 
-  def add_block(pid, transactions) do
-    GenServer.call(pid, {:add_block, transactions})
+  def request_mine(pid, transactions, caller \\ self()) do
+    GenServer.cast(pid, {:mine, transactions, caller})
+  end
+
+  def valid_chain?(pid) do
+    GenServer.call(pid, :valid_chain)
   end
 
   ## Server Callbacks
@@ -21,33 +25,62 @@ defmodule Elixirium.Chain do
   @impl true
   def init(:ok) do
     genesis_block = create_genesis_block()
-    {:ok, [genesis_block]}
+    {:ok, %{chain: [genesis_block], mining: false}}
   end
 
   @impl true
   def handle_call(:get_chain, _from, state) do
-    {:reply, state, state}
+    {:reply, state.chain, state}
   end
 
   @impl true
-  def handle_call({:add_block, transactions}, _from, state) do
-    last_block = List.last(state)
+  def handle_call(:valid_chain, _from, state) do
+    {:reply, Block.valid_chain?(state.chain), state}
+  end
 
-    candidate =
-      %Block{
-        index: last_block.index + 1,
-        timestamp: System.system_time(:second),
-        transactions: transactions,
-        previous_hash: last_block.hash,
-        nonce: 0,
-        hash: ""
+  @impl true
+  def handle_cast({:mine, _transactions}, %{mining: true} = state) do
+    {:noreply, state}
+  end
+
+  def handle_cast({:mine, transactions, caller}, %{mining: false} = state) do
+    last_block = List.last(state.chain)
+
+    candidate = %Block{
+      index: last_block.index + 1,
+      timestamp: System.system_time(:second),
+      transactions: transactions,
+      previous_hash: last_block.hash,
+      nonce: 0,
+      hash: ""
+    }
+
+    pid = self()
+
+    Task.Supervisor.start_child(Elixirium.MiningSupervisor, fn ->
+      mined = Miner.mine(candidate)
+      send(pid, {:mined_block, mined, caller})
+    end)
+
+    {:noreply, %{state | mining: true}}
+  end
+
+  @impl true
+  def handle_info({:mined_block, block, caller}, state) do
+    last_block = List.last(state.chain)
+
+    if Block.valid_successor?(last_block, block) do
+      send(caller, {:block_added, block})
+
+      new_state = %{
+        state
+        | chain: state.chain ++ [block],
+          mining: false
       }
-      |> Miner.mine()
 
-    if Block.valid_successor?(last_block, candidate) do
-      {:reply, {:ok, candidate}, state ++ [candidate]}
+      {:noreply, new_state}
     else
-      {:reply, {:error, :invalid_block}, state}
+      {:noreply, %{state | mining: false}}
     end
   end
 
@@ -61,6 +94,6 @@ defmodule Elixirium.Chain do
       hash: ""
     }
 
-    %{block | hash: Block.hash_block(block)}
+    Miner.mine(block)
   end
 end

@@ -15,15 +15,38 @@ defmodule Elixirium.ChainTest do
   end
 
   test "can add a block", %{pid: pid} do
-    Chain.add_block(pid, ["tx1"])
-    chain = Chain.get_chain(pid)
+    Chain.request_mine(pid, ["tx1"])
 
-    assert length(chain) == 2
+    assert_receive {:block_added, block}, 5_000
+
+    assert block.index == 1
+    chain = Chain.get_chain(pid)
     assert List.last(chain).transactions == ["tx1"]
   end
 
-  test "add_block returns ok tuple", %{pid: pid} do
-    {:ok, block} = Chain.add_block(pid, ["tx1"])
-    assert block.index == 1
+  test "chain is valid after adding blocks", %{pid: pid} do
+    Chain.request_mine(pid, ["tx1"])
+    assert_receive {:block_added, _}, 5_000
+
+    Chain.request_mine(pid, ["tx2"])
+    assert_receive {:block_added, _}, 5_000
+
+
+    assert Chain.valid_chain?(pid)
+  end
+
+  test "tampered block invalidates chain", %{pid: pid} do
+    Chain.request_mine(pid, ["tx1"])
+    assert_receive {:block_added, _}, 5_000
+
+    chain = Chain.get_chain(pid)
+
+    tampered =
+      chain
+      |> List.update_at(1, fn block ->
+        %{block | transactions: ["evil_tx"]}
+      end)
+
+    refute Elixirium.Block.valid_chain?(tampered)
   end
 end
