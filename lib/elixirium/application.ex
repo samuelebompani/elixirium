@@ -9,7 +9,8 @@ defmodule Elixirium.Application do
   def start(_type, _args) do
     children = [
       {Task.Supervisor, name: Elixirium.MiningSupervisor},
-      Elixirium.Chain
+      Elixirium.Chain,
+      Elixirium.Mempool
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

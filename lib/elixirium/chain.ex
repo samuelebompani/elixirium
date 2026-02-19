@@ -12,8 +12,8 @@ defmodule Elixirium.Chain do
     GenServer.call(pid, :get_chain)
   end
 
-  def request_mine(pid, transactions, caller \\ self()) do
-    GenServer.cast(pid, {:mine, transactions, caller})
+  def request_mine(pid) do
+    GenServer.cast(pid, {:mine, self()})
   end
 
   def valid_chain?(pid) do
@@ -39,30 +39,36 @@ defmodule Elixirium.Chain do
   end
 
   @impl true
-  def handle_cast({:mine, _transactions}, %{mining: true} = state) do
+  def handle_cast({:mine, _caller}, %{mining: true} = state) do
     {:noreply, state}
   end
 
-  def handle_cast({:mine, transactions, caller}, %{mining: false} = state) do
-    last_block = List.last(state.chain)
+  def handle_cast({:mine, caller}, %{mining: false} = state) do
+    transactions = Elixirium.Mempool.get_transactions()
 
-    candidate = %Block{
-      index: last_block.index + 1,
-      timestamp: System.system_time(:second),
-      transactions: transactions,
-      previous_hash: last_block.hash,
-      nonce: 0,
-      hash: ""
-    }
+    if transactions == [] do
+      {:noreply, state}
+    else
+      last_block = List.last(state.chain)
 
-    pid = self()
+      candidate = %Block{
+        index: last_block.index + 1,
+        timestamp: System.system_time(:second),
+        transactions: transactions,
+        previous_hash: last_block.hash,
+        nonce: 0,
+        hash: ""
+      }
 
-    Task.Supervisor.start_child(Elixirium.MiningSupervisor, fn ->
-      mined = Miner.mine(candidate)
-      send(pid, {:mined_block, mined, caller})
-    end)
+      pid = self()
 
-    {:noreply, %{state | mining: true}}
+      Task.Supervisor.start_child(Elixirium.MiningSupervisor, fn ->
+        mined = Miner.mine(candidate)
+        send(pid, {:mined_block, mined, caller})
+      end)
+
+      {:noreply, %{state | mining: true}}
+    end
   end
 
   @impl true
@@ -77,7 +83,7 @@ defmodule Elixirium.Chain do
         | chain: state.chain ++ [block],
           mining: false
       }
-
+      Elixirium.Mempool.clear_transactions()
       {:noreply, new_state}
     else
       {:noreply, %{state | mining: false}}
