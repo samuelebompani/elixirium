@@ -1,5 +1,6 @@
 # Elixirium
 ![tests](https://github.com/samuelebompani/elixirium/actions/workflows/ci.yml/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/samuelebompani/elixirium/badge.svg?branch=main)](https://coveralls.io/github/samuelebompani/elixirium?branch=main)
 
 Elixirium is an experimental blockchain prototype built in Elixir on the BEAM VM.
 

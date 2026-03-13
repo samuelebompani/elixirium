@@ -30,6 +30,22 @@ defmodule Elixirium.BlockTest do
     assert Block.valid_successor?(genesis, mined)
   end
 
+  test "empty chain is not valid" do
+    assert Block.valid_chain?([]) == false
+  end
+
+  test "chain with just the genesis block is valid" do
+    genesis = %Block{
+      index: 0,
+      timestamp: 1,
+      transactions: [],
+      previous_hash: "0",
+      nonce: 0,
+      hash: ""
+    }
+    assert Block.valid_chain?([genesis]) == true
+  end
+
   test "hashes is deterministic" do
     block = %Block{
       index: 1,
