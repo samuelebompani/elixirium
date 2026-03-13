@@ -12,7 +12,9 @@ defmodule Elixirium.MixProject do
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
-        "coveralls.html": :test
+        "coveralls.html": :test,
+        "coveralls.github": :test,
+        "coveralls.post": :test
       ]
     ]
   end
